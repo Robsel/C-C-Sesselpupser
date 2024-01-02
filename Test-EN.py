@@ -12,7 +12,7 @@ X, y = np.random.rand(100, 10), np.random.rand(100)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # Create and train the ElasticNet model
-model = ElasticNet(lr=0.01, n_iters=1000, l1_ratio=0.5, alpha=0.1)
+model = ElasticNet.ElasticNet(lr=0.01, n_iters=1000, l1_ratio=0.5, alpha=0.1)
 model.fit(X_train, y_train)
 
 # Predict on the testing set
