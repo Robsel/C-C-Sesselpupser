@@ -66,10 +66,11 @@ class SOM:
         return clusters
 
 # Usage
-num_neurons = 10
+data = np.random.rand(100, 5)
+num_neurons=max(data.shape[0]//2, 4)
 epochs = 100
 learning_rate = 0.5
 radius = 2  # Radius of the neighborhood
-data = np.random.rand(100, 2)
+
 som = SOM(data, num_neurons, epochs, learning_rate, radius)
 som.train(step_by_step=True)
