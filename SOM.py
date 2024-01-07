@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.datasets import make_blobs
+
 
 class SOM:
     def __init__(self, data, num_neurons, epochs, learning_rate, radius):
@@ -66,11 +68,12 @@ class SOM:
         return clusters
 
 # Usage
-data = np.random.rand(100, 5)
+data, _ = make_blobs(n_samples=100, centers=4, n_features=5, random_state=42)
+
 num_neurons=max(data.shape[0]//2, 4)
 epochs = 100
 learning_rate = 0.5
-radius = 2  # Radius of the neighborhood
+radius = 0.1  # Radius of the neighborhood
 
 som = SOM(data, num_neurons, epochs, learning_rate, radius)
 som.train(step_by_step=True)
