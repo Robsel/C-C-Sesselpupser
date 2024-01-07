@@ -2,29 +2,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class SOM:
-    def __init__(self, data, grid_dimensions, epochs, learning_rate):
-        self.data = data
-        self.grid_dimensions = grid_dimensions
+    def __init__(self, data, num_neurons, epochs, learning_rate, radius):
+        self.data = np.array(data)
+        self.num_neurons = num_neurons
         self.epochs = epochs
         self.learning_rate = learning_rate
+        self.radius = radius
+        self.weights = np.random.rand(num_neurons, self.data.shape[1])
 
-        # Determine the range for each dimension
-        min_vals = np.min(data, axis=0)
-        max_vals = np.max(data, axis=0)
-
-        # Create a structured grid for neuron initialization
-        grid_x, grid_y = np.meshgrid(np.linspace(min_vals[0], max_vals[0], grid_dimensions[0]),
-                                     np.linspace(min_vals[1], max_vals[1], grid_dimensions[1]))
-
-        # Flatten the grid and replicate for all dimensions
-        self.weights = np.zeros((np.prod(grid_dimensions), data.shape[1]))
-        for i in range(data.shape[1] // 2):
-            self.weights[:, i * 2] = grid_x.flatten()
-            self.weights[:, i * 2 + 1] = grid_y.flatten()
-
-        # Handle odd number of dimensions
-        if data.shape[1] % 2 != 0:
-            self.weights[:, -1] = np.mean([grid_x.flatten(), grid_y.flatten()], axis=0)
+    def update_neighborhood(self, best_neuron_idx, current_data_point, radius, learning_rate):
+        for i, weight in enumerate(self.weights):
+            distance_to_best_neuron = np.linalg.norm(weight - self.weights[best_neuron_idx])
+            if distance_to_best_neuron <= radius:
+                influence = np.exp(-distance_to_best_neuron**2 / (2 * (radius**2)))
+                self.weights[i] += influence * learning_rate * (current_data_point - weight)
 
     def train(self, step_by_step=False):
         if step_by_step:
@@ -37,6 +28,7 @@ class SOM:
 
             def on_button_click(event):
                 self.wait = False  # Resume loop on button click
+
             button.on_clicked(on_button_click)
 
         for epoch in range(self.epochs):
@@ -44,6 +36,9 @@ class SOM:
             for x in self.data:
                 closest_neuron_idx = np.argmin(np.linalg.norm(self.weights - x, axis=1))
                 self.weights[closest_neuron_idx] += self.learning_rate * (x - self.weights[closest_neuron_idx])
+
+                # Update neighboring neurons
+                self.update_neighborhood(closest_neuron_idx, x, self.radius, self.learning_rate)
 
                 if step_by_step:
                     # Visualization at each step
@@ -71,7 +66,10 @@ class SOM:
         return clusters
 
 # Usage
-data = np.random.rand(100, 5)  # Example high-dimensional data
-grid_dimensions = (10, 10)  # Grid size
-som = SOM(data, grid_dimensions, epochs=100, learning_rate=0.1)
+num_neurons = 10
+epochs = 100
+learning_rate = 0.5
+radius = 2  # Radius of the neighborhood
+data = np.random.rand(100, 2)
+som = SOM(data, num_neurons, epochs, learning_rate, radius)
 som.train(step_by_step=True)
