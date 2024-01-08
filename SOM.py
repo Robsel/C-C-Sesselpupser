@@ -78,9 +78,10 @@ class SOM:
         return data_with_clusters
 
 # Usage
-data, _ = make_blobs(n_samples=100, centers=4, n_features=2, random_state=42)
-
-num_neurons = max(data.shape[0] // 2, 4)
+data, _ = make_blobs(n_samples=100, centers=4, n_features=5, random_state=42)
+numnum = np.sqrt(data.shape[0])
+numnum *= numnum
+num_neurons = int(max(numnum , 4))
 epochs = 1
 learning_rate = 0.3
 
