@@ -61,7 +61,7 @@ class SOM:
 
         if step_by_step:
             plt.ioff()  # Disable interactive mode
-            print(self.map_data())
+            
         return self.map_data()
 
     def map_data(self):
@@ -81,7 +81,7 @@ class SOM:
 data, _ = make_blobs(n_samples=100, centers=4, n_features=2, random_state=42)
 
 num_neurons = max(data.shape[0] // 2, 4)
-epochs = 10
+epochs = 1
 learning_rate = 0.3
 
 som = SOM(data, num_neurons, epochs, learning_rate)
