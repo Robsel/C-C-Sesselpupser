@@ -2,53 +2,50 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_blobs
 
+def initializegrid(num_neurons, data):
+    min_vals = np.min(data, axis=0)
+    max_vals = np.max(data, axis=0)
+    grid_dim = int(np.ceil(np.sqrt(num_neurons)))
+    grids = [np.linspace(min_vals[i], max_vals[i], grid_dim) for i in range(data.shape[1])]
+    neuron_positions = np.array(np.meshgrid(*grids)).T.reshape(-1, data.shape[1])
+    return neuron_positions
+    
 class SOM:
     def __init__(self, data, num_neurons, epochs, learning_rate):
         self.data = np.array(data)
         self.num_neurons = num_neurons
         self.epochs = epochs
         self.learning_rate = learning_rate
-        self.weights = np.random.rand(num_neurons, self.data.shape[1])
+        self.weights = initializegrid(num_neurons, self.data) 
 
     def update_neighborhood(self, neuron_idx, closest_neuron_idx, current_data_point, learning_rate):
-        # Update only the specified neuron
-        influence = 0.01  # Influence can be set to 1, or you can define a new influence function
+        influence = 0.01
         self.weights[neuron_idx-1] += influence * learning_rate * (current_data_point - self.weights[neuron_idx-1])
 
     def find_neighborhood(self, closest_neuron_idx, current_data_point, learning_rate):
         n = num_neurons
         grid = max(int(np.sqrt(self.data.shape[0])), 4)
-
-        # Check and update the neighbors
         for i in range(n):
             if i > 0 and (i - 1) % grid != 0:
                 self.update_neighborhood(i - 1, closest_neuron_idx, current_data_point, learning_rate)
-
             if i < n - 1 and i % grid != 0:
                 self.update_neighborhood(i + 1, closest_neuron_idx, current_data_point, learning_rate)
-
             if i >= grid:
                 self.update_neighborhood(i - grid, closest_neuron_idx, current_data_point, learning_rate)
-
             if i < n - grid:
                 self.update_neighborhood(i + grid, closest_neuron_idx, current_data_point, learning_rate)
 
     def train(self, step_by_step=False):
         if step_by_step:
-            plt.ion()  # Enable interactive mode
+            plt.ion()
             fig, ax = plt.subplots(figsize=(8, 6))
-
         for epoch in range(self.epochs):
             np.random.shuffle(self.data)
             for x in self.data:
                 closest_neuron_idx = np.argmin(np.linalg.norm(self.weights - x, axis=1))
                 self.weights[closest_neuron_idx] += self.learning_rate * (x - self.weights[closest_neuron_idx])
-
-                # Update neighboring neurons
                 self.find_neighborhood(closest_neuron_idx, x, self.learning_rate)
-
                 if step_by_step:
-                    # Visualization at each step
                     ax.clear()
                     ax.scatter(self.data[:, 0], self.data[:, 1], label='Data Points')
                     ax.scatter(self.weights[:, 0], self.weights[:, 1], marker='o', color='red', label='Neuron Positions')
@@ -57,11 +54,9 @@ class SOM:
                     ax.set_ylabel('Feature 2')
                     ax.legend()
                     plt.draw()
-                    plt.pause(0.05)  # Pause for a brief moment to update the plot
-
+                    plt.pause(0.05)
         if step_by_step:
-            plt.ioff()  # Disable interactive mode
-            
+            plt.ioff()
         return self.map_data()
 
     def map_data(self):
@@ -69,31 +64,14 @@ class SOM:
         for x in self.data:
             closest_neuron_idx = np.argmin(np.linalg.norm(self.weights - x, axis=1))
             clusters.append(closest_neuron_idx)
-
-        # Convert clusters to a numpy array and reshape it to be a column vector
         cluster_column = np.array(clusters).reshape(-1, 1)
+        return cluster_column
 
-        # Append the cluster column to the original data
-        data_with_clusters = np.hstack((self.data, cluster_column))
-        return data_with_clusters
-
-# Usage
-data, _ = make_blobs(n_samples=100, centers=4, n_features=5, random_state=42)
+data, _ = make_blobs(n_samples=100, centers=5, n_features=5, random_state=42)
 numnum = np.sqrt(data.shape[0])
-numnum *= numnum
-num_neurons = int(max(numnum , 4))
-epochs = 1
+num_neurons = int(max(numnum, 4))
+epochs = 10
 learning_rate = 0.3
 
 som = SOM(data, num_neurons, epochs, learning_rate)
-som.train(step_by_step=True)  # Train with visualization but without the button
-print
-
-
-
-#give me code in python please, a function called find_neighborhood which gets a numpy array(n, d), checks what square is the next lower one to n and saves the root of that square in a variable called grid. then an itarator goes through a new numpy array(n, d), then chooses up to 4 other entries in the same numpy array based on the following criteria:
-#is there an entry before this one? if yes->(check if this entry-1 equals 0 after modulo with grid. if yes, skip. if no, apply update_neighborhood to this entry-1) if no, skip.
-#is there an entry after this one? if yes->(check if this entry equals 0 after modulo with grid. if yes, skip. if no, apply update_neighborhood to this entry+1) if no, skip.
-#is there an entry at this-grid? if yes, apply update_neighborhood to this entry-grid. if no, skip.
-#is there an entry at this+grid? if yes, apply update_neighborhood to this entry+grid. if no, skip.
-
+print(som.train(step_by_step=True))
