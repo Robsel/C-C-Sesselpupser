@@ -1,6 +1,3 @@
-Certainly! Here's the formatted README content with appropriate markdown styling for better clarity:
-
----
 
 # Self-Organizing Map (SOM) Implementation in Python
 
