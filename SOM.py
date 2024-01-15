@@ -50,8 +50,8 @@ class SOM:
             self.neighbors[i] = np.argsort(distances[i])[:self.k_neighbors]
 
     def update_neighborhood(self, neuron_idx, current_data_point, learning_rate, influence):
-        for neighbor_idx in self.neighbors[neuron_idx]:
-            self.weights[neighbor_idx] += influence * learning_rate * (current_data_point - self.weights[neighbor_idx])
+        neighbor_indices = self.neighbors[neuron_idx]
+        self.weights[neighbor_indices] += influence * learning_rate * (current_data_point - self.weights[neighbor_indices])
 
     def train(self, step_by_step=False):
         if step_by_step:
@@ -133,5 +133,5 @@ influence = 0.1
 calculate_k_epoch = 2
 k_neighbors = 5
 
-som = SOM(data, 50, epochs, learning_rate, influence, update_neighbors_epoch, calculate_k_epoch, k_neighbors, randomize_data=True, init_mode='diagonal')
+som = SOM(data, 50, epochs, learning_rate, influence, update_neighbors_epoch, calculate_k_epoch, k_neighbors, randomize_data=False, init_mode='diagonal')
 print(analyze_array(som.train(step_by_step=True)))
