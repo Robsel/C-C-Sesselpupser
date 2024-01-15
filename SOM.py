@@ -1,8 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from enum import Enum
 from sklearn.datasets import make_blobs
 
-# Functions for initializing the grid
+class Init_Mode(Enum):
+    diagonal = 'diagonal'
+    onepoint = 'onepoint'
+    random = 'random'
+
+# Functions for initializing the grid    
 def initializegrid_onepoint(num_neurons, data):
     min_vals = np.min(data, axis=0)
     max_vals = np.max(data, axis=0)
@@ -20,9 +26,64 @@ def initialize_random(num_neurons, data):
     max_vals = np.max(data, axis=0)
     return np.random.uniform(min_vals, max_vals, (num_neurons, data.shape[1]))
 
-# SOM class
 class SOM:
-    def __init__(self, data, num_neurons, epochs, learning_rate, influence, update_neighbors_epoch, calculate_k_epoch, k_neighbors, randomize_data=True, init_mode='diagonal'):
+    """
+    Implements a Self Organizing Map
+        
+        Attributes
+        ----------
+        data : arraylike
+            your data points
+        num_neurons : int
+            The number of neurons (best is the number of expected clusters)
+        epochs : int
+            The number of epochs this algorithm will run
+        learning_rate : float
+            Describes how much new data points will change the current model
+        influence : float
+            Describes how much a neuron will update its neighbors when its changed
+        update_neighbors_epoch : int
+            After how many epochs should a neuron also update its neighbors
+        calculate_k_epoch : int
+            After how many epochs should each neuron calculate a new neighborhood
+        k_neighbors : int
+            How many neighbors can a neuron have
+        randomize_data : boolean
+            Should we shuffle the data points before evaluation?
+        init_mode : Init_Mode
+            How should the neurons be initialized?
+            Possible values are diagonal, onepoint and random
+    """
+
+
+    def __init__(self, data, num_neurons: int , epochs: int = 100, learning_rate: float = 0.3, influence: float = 0.1, update_neighbors_epoch: int = 4, calculate_k_epoch: int = 6, k_neighbors: int = 4, randomize_data: bool=True, init_mode: Init_Mode='diagonal'):
+        """
+        Initialize a new Self Organizing Map
+        
+        Parameters
+        ----------
+            data
+                your data points
+            num_neurons : int
+                The number of neurons (best is the number of expected clusters)
+            epochs : int
+                The number of epochs this algorithm will run (default is 100)
+            learning_rate : float
+                Describes how much new data points will change the current model (default is 0.3)
+            influence : float
+                Describes how much a neuron will update its neighbors when its changed (default is 0.1)
+            update_neighbors_epoch : int
+                After how many epochs should a neuron also update its neighbors (default is 4)
+            calculate_k_epoch : int
+                After how many epochs should each neuron calculate a new neighborhood (default is 6)
+            k_neighbors : int
+                How many neighbors can a neuron have (default is 4)
+            randomize_data : boolean
+                Should we shuffle the data points before evaluation? (default is True)
+            init_mode : Init_Mode
+                How should the neurons be initialized?
+                Possible values are diagonal, onepoint and random (default ist diagonal)
+        """
         self.data = np.array(data)
         self.num_neurons = num_neurons
         self.epochs = epochs
@@ -36,12 +97,12 @@ class SOM:
 
         if init_mode == 'diagonal':
             self.weights = initializegrid_diagonal(num_neurons, self.data)
-        elif init_mode == 'one_point':
+        elif init_mode == 'onepoint':
             self.weights = initializegrid_onepoint(num_neurons, self.data)
         elif init_mode == 'random':
             self.weights = initialize_random(num_neurons, self.data)
         else:
-            raise ValueError("Invalid init_mode. Choose 'diagonal', 'one_point', or 'random'")
+            raise ValueError("Invalid init_mode. Choose 'diagonal', 'onepoint', or 'random'")
         self.neighbors = {i: [] for i in range(num_neurons)}
 
     def calculate_k_closest_neighbors(self):
@@ -124,7 +185,7 @@ def analyze_array(arr):
     return length, unique_elements
 
 # Example usage
-data, _ = make_blobs(n_samples=1000, centers=50, n_features=7, random_state=42)
+data, _ = make_blobs(n_samples=20020, centers=15, n_features=7, random_state=42)
 num_neurons = int(np.ceil(np.sqrt(data.shape[0])))
 epochs = 100
 learning_rate = 0.3
@@ -133,5 +194,6 @@ influence = 0.1
 calculate_k_epoch = 2
 k_neighbors = 5
 
-som = SOM(data, 50, epochs, learning_rate, influence, update_neighbors_epoch, calculate_k_epoch, k_neighbors, randomize_data=False, init_mode='diagonal')
+# som = SOM(data, 15, epochs, learning_rate, influence, update_neighbors_epoch, calculate_k_epoch, k_neighbors, randomize_data=True, init_mode='diagonal')
+som = SOM(data, 15)
 print(analyze_array(som.train(step_by_step=True)))
