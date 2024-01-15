@@ -95,15 +95,43 @@ class SOM:
         cluster_column = np.array(clusters).reshape(-1, 1)
         return cluster_column
 
+def analyze_array(arr):
+    """
+    Analyze a numpy array to determine:
+    1. The length of the array (n)
+    2. The number of unique elements in the array
+
+    Parameters:
+    arr (np.array): A numpy array of shape (n, 1)
+
+    Returns:
+    tuple: (length of the array, number of unique elements)
+    """
+    # Ensure the input is a numpy array
+    if not isinstance(arr, np.ndarray):
+        raise ValueError("Input must be a numpy array")
+
+    # Check if the array shape is (n, 1)
+    if arr.ndim != 2 or arr.shape[1] != 1:
+        raise ValueError("Array must be of shape (n, 1)")
+
+    # Calculate the length of the array
+    length = arr.shape[0]
+
+    # Calculate the number of unique elements
+    unique_elements = np.unique(arr).size
+
+    return length, unique_elements
+
 # Example usage
-data, _ = make_blobs(n_samples=120, centers=8, n_features=7, random_state=42)
+data, _ = make_blobs(n_samples=1000, centers=50, n_features=7, random_state=42)
 num_neurons = int(np.ceil(np.sqrt(data.shape[0])))
-epochs = 10
+epochs = 100
 learning_rate = 0.3
-update_neighbors_epoch = 3
+update_neighbors_epoch = 5
 influence = 0.1
-calculate_k_epoch = 3
+calculate_k_epoch = 2
 k_neighbors = 5
 
-som = SOM(data, num_neurons, epochs, learning_rate, influence, update_neighbors_epoch, calculate_k_epoch, k_neighbors, randomize_data=True, init_mode='random')
-print(som.train(step_by_step=True))
+som = SOM(data, 50, epochs, learning_rate, influence, update_neighbors_epoch, calculate_k_epoch, k_neighbors, randomize_data=True, init_mode='diagonal')
+print(analyze_array(som.train(step_by_step=True)))
