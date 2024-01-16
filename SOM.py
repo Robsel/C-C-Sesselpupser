@@ -56,7 +56,7 @@ class SOM:
     """
 
 
-    def __init__(self, data, num_neurons: int , epochs: int = 100, learning_rate: float = 0.3, influence: float = 0.1, update_neighbors_epoch: int = 4, calculate_k_epoch: int = 6, k_neighbors: int = 4, randomize_data: bool=True, init_mode: Init_Mode='diagonal'):
+    def __init__(self, data, num_neurons: int , epochs: int = 100, learning_rate: float = 0.3, influence: float = 0.1, update_neighbors_epoch: int = 4, calculate_k_epoch: int = 6, first_k_calc = True, k_neighbors: int = 4, randomize_data: bool=True, init_mode: Init_Mode='diagonal'):
         """
         Initialize a new Self Organizing Map
         
@@ -76,6 +76,8 @@ class SOM:
                 After how many epochs should a neuron also update its neighbors (default is 4)
             calculate_k_epoch : int
                 After how many epochs should each neuron calculate a new neighborhood (default is 6)
+            first_k_calc: boolean
+                If True, calculates nearest neighbors on first call of train (default is True)
             k_neighbors : int
                 How many neighbors can a neuron have (default is 4)
             randomize_data : boolean
@@ -91,6 +93,7 @@ class SOM:
         self.influence = influence
         self.update_neighbors_epoch = update_neighbors_epoch
         self.calculate_k_epoch = calculate_k_epoch
+        self.first_k_calc = first_k_calc
         self.k_neighbors = k_neighbors
         self.randomize_data = randomize_data
         self.init_mode = init_mode
@@ -115,6 +118,10 @@ class SOM:
         self.weights[neighbor_indices] += influence * learning_rate * (current_data_point - self.weights[neighbor_indices])
 
     def train(self, step_by_step=False):
+        if self.first_k_calc:
+            self.calculate_k_closest_neighbors()
+            self.first_k_calc = False
+            
         if step_by_step:
             plt.ion()
             fig, ax = plt.subplots(figsize=(8, 6))
