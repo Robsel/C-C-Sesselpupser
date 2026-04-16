@@ -1,13 +1,12 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from enum import Enum
-from sklearn.datasets import make_blobs
 
-class Init_Mode(Enum):
+/* 
+
+        TODO:Initialize the grid of neurons in different ways.
+Init_Mode(Enum):
     diagonal = 'diagonal'
     onepoint = 'onepoint'
     random = 'random'
-
+    
 # Functions for initializing the grid    
 def initializegrid_onepoint(num_neurons, data):
     min_vals = np.min(data, axis=0)
@@ -25,9 +24,10 @@ def initialize_random(num_neurons, data):
     min_vals = np.min(data, axis=0)
     max_vals = np.max(data, axis=0)
     return np.random.uniform(min_vals, max_vals, (num_neurons, data.shape[1]))
+*/
 
-class SOM:
-    """
+
+    /*
     Implements a Self Organizing Map
         
         Attributes
@@ -53,11 +53,11 @@ class SOM:
         init_mode : Init_Mode
             How should the neurons be initialized?
             Possible values are diagonal, onepoint and random
-    """
+    */
 
 
-    def __init__(self, data, num_neurons: int , epochs: int = 100, learning_rate: float = 0.3, influence: float = 0.1, update_neighbors_epoch: int = 4, calculate_k_epoch: int = 6, first_k_calc = True, k_neighbors: int = 4, randomize_data: bool=True, init_mode: Init_Mode='diagonal'):
-        """
+    //TODO: declare som function __init__(self, data, num_neurons: int , epochs: int = 100, learning_rate: float = 0.3, influence: float = 0.1, update_neighbors_epoch: int = 4, calculate_k_epoch: int = 6, first_k_calc = True, k_neighbors: int = 4, randomize_data: bool=True, init_mode: Init_Mode='diagonal'):
+        /*
         Initialize a new Self Organizing Map
         
         Parameters
@@ -85,7 +85,8 @@ class SOM:
             init_mode : Init_Mode
                 How should the neurons be initialized?
                 Possible values are diagonal, onepoint and random (default ist diagonal)
-        """
+        */
+       /* TODO: c has pointers! or smth lmao
         self.data = np.array(data)
         self.num_neurons = num_neurons
         self.epochs = epochs
@@ -97,17 +98,21 @@ class SOM:
         self.k_neighbors = k_neighbors
         self.randomize_data = randomize_data
         self.init_mode = init_mode
-
-        if init_mode == 'diagonal':
-            self.weights = initializegrid_diagonal(num_neurons, self.data)
-        elif init_mode == 'onepoint':
-            self.weights = initializegrid_onepoint(num_neurons, self.data)
-        elif init_mode == 'random':
-            self.weights = initialize_random(num_neurons, self.data)
+*/
+        //TODO: WDYMEEEAAAN if declaration error
+        if (init_mode == "diagonal") {
+            self.weights = initializegrid_diagonal(num_neurons, self.data);
+        } else if (init_mode == "onepoint") {
+            self.weights = initializegrid_onepoint(num_neurons, self.data);
+        } else if (init_mode == "random") {
+            self.weights = initialize_random(num_neurons, self.data);
+        }
         else:
             raise ValueError("Invalid init_mode. Choose 'diagonal', 'onepoint', or 'random'")
-        self.neighbors = {i: [] for i in range(num_neurons)}
+        
+        // TODO: make array for neighbors = {i: [] for i in range(num_neurons)}
 
+    /*TODO: translate to c
     def calculate_k_closest_neighbors(self):
         distances = np.linalg.norm(self.weights[:, None] - self.weights, axis=2)
         for i in range(self.num_neurons):
@@ -121,10 +126,6 @@ class SOM:
         if self.first_k_calc:
             self.calculate_k_closest_neighbors()
             self.first_k_calc = False
-            
-        if step_by_step:
-            plt.ion()
-            fig, ax = plt.subplots(figsize=(8, 6))
 
         for epoch in range(self.epochs):
             if self.randomize_data:
@@ -139,20 +140,6 @@ class SOM:
             if epoch >= self.calculate_k_epoch and epoch % self.calculate_k_epoch == 0:
                 self.calculate_k_closest_neighbors()
 
-            if step_by_step:
-                ax.clear()
-                ax.scatter(self.data[:, 0], self.data[:, 1], label='Data Points')
-                ax.scatter(self.weights[:, 0], self.weights[:, 1], marker='o', color='red', label='Neuron Positions')
-                ax.set_title(f'SOM Training Epoch {epoch + 1}')
-                ax.set_xlabel('Feature 1')
-                ax.set_ylabel('Feature 2')
-                ax.legend()
-                plt.draw()
-                plt.pause(0.05)
-
-        if step_by_step:
-            plt.ioff()
-
         return self.map_data()
 
     def map_data(self):
@@ -162,45 +149,39 @@ class SOM:
             clusters.append(closest_neuron_idx)
         cluster_column = np.array(clusters).reshape(-1, 1)
         return cluster_column
+*/
 
-def analyze_array(arr):
-    """
-    Analyze a numpy array to determine:
+/*TODO: do i need this???
+double analyze_array(double arr[], int n) {
+    /*
+    Analyze an array to determine:
     1. The length of the array (n)
     2. The number of unique elements in the array
 
     Parameters:
-    arr (np.array): A numpy array of shape (n, 1)
+    array of shape (n, 1)
 
     Returns:
     tuple: (length of the array, number of unique elements)
-    """
-    # Ensure the input is a numpy array
-    if not isinstance(arr, np.ndarray):
-        raise ValueError("Input must be a numpy array")
+    
+    // Ensure the input is an array
+    if (arr != ) {
+        fprintf(stderr, "Input must be a valid array\n");
+        return -1;
+    }
 
-    # Check if the array shape is (n, 1)
-    if arr.ndim != 2 or arr.shape[1] != 1:
-        raise ValueError("Array must be of shape (n, 1)")
+    // Check if the array shape is (n, 1)
+    if (arr.ndim != 2 || arr.shape[1] != 1) {
+        fprintf(stderr, "Array must be of shape (n, 1)\n");
+        return -1;
+    }
 
-    # Calculate the length of the array
-    length = arr.shape[0]
+    // Calculate the length of the array
+    length =
 
-    # Calculate the number of unique elements
+    // Calculate the number of unique elements
     unique_elements = np.unique(arr).size
 
     return length, unique_elements
-
-# Example usage
-data, _ = make_blobs(n_samples=2000, centers=15, n_features=2, random_state=42)
-num_neurons = int(np.ceil(np.sqrt(data.shape[0])))
-epochs = 100
-learning_rate = 0.3
-update_neighbors_epoch = 5
-influence = 0.1
-calculate_k_epoch = 2
-k_neighbors = 5
-
-som = SOM(data, 15, epochs, learning_rate, influence, update_neighbors_epoch, calculate_k_epoch, k_neighbors, randomize_data=True, init_mode='diagonal')
-#som = SOM(data, 15)
-print(analyze_array(som.train(step_by_step=True)))
+}
+*/
