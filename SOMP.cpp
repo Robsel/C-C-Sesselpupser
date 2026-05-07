@@ -22,7 +22,7 @@ double distance(const Vec &a, const Vec &b)
     {
         sum += (a[i] - b[i]) * (a[i] - b[i]);
     }
-    return sqrt(sum);
+    return sum;
 }
 
 // Euclidean distance between two neuron columns in a [dim][num_neurons] weight matrix
@@ -34,23 +34,23 @@ double col_distance(const Matrix &weights, int i, int j)
         double diff = weights[d][i] - weights[d][j];
         sum += diff * diff;
     }
-    return sqrt(sum);
+    return sum;
 }
 
 // Distance between a data point x and neuron column i
 double col_distance_vec(const Matrix &weights, int i, const Vec &x)
 {
     double sum = 0.0;
+#pragma omp parallel for reduction(+ : sum)
     for (size_t d = 0; d < weights.size(); d++)
     {
         double diff = weights[d][i] - x[d];
         sum += diff * diff;
     }
-    return sqrt(sum);
+    return sum;
 }
 
 // --- Initialization methods ---
-// All return weights in [dim][num_neurons] layout
 
 Matrix initialize_diagonal(int num_neurons, const Matrix &data)
 {
@@ -142,7 +142,6 @@ public:
     };
 
     Matrix data;
-    // weights[dim][num_neurons]
     Matrix weights;
     vector<vector<int>> neighbors;
 
@@ -207,6 +206,7 @@ public:
     void update_neighborhood(int idx, const Vec &x)
     {
         int dim = weights.size();
+
         for (int n : neighbors[idx])
         {
             for (int d = 0; d < dim; d++)
