@@ -1,12 +1,14 @@
+import numpy as np
+import sys
+from enum import Enum
+from collections import Counter
+import time
 
-/* 
-
-        TODO:Initialize the grid of neurons in different ways.
-Init_Mode(Enum):
+class Init_Mode(Enum):
     diagonal = 'diagonal'
     onepoint = 'onepoint'
     random = 'random'
-    
+
 # Functions for initializing the grid    
 def initializegrid_onepoint(num_neurons, data):
     min_vals = np.min(data, axis=0)
@@ -24,10 +26,9 @@ def initialize_random(num_neurons, data):
     min_vals = np.min(data, axis=0)
     max_vals = np.max(data, axis=0)
     return np.random.uniform(min_vals, max_vals, (num_neurons, data.shape[1]))
-*/
 
-
-    /*
+class SOM:
+    """
     Implements a Self Organizing Map
         
         Attributes
@@ -48,16 +49,13 @@ def initialize_random(num_neurons, data):
             After how many epochs should each neuron calculate a new neighborhood
         k_neighbors : int
             How many neighbors can a neuron have
-        randomize_data : boolean
-            Should we shuffle the data points before evaluation?
         init_mode : Init_Mode
             How should the neurons be initialized?
             Possible values are diagonal, onepoint and random
-    */
+    """
 
-
-    //TODO: declare som function __init__(self, data, num_neurons: int , epochs: int = 100, learning_rate: float = 0.3, influence: float = 0.1, update_neighbors_epoch: int = 4, calculate_k_epoch: int = 6, first_k_calc = True, k_neighbors: int = 4, randomize_data: bool=True, init_mode: Init_Mode='diagonal'):
-        /*
+    def __init__(self, data, num_neurons: int , epochs: int = 100, learning_rate: float = 0.3, influence: float = 0.1, update_neighbors_epoch: int = 4, calculate_k_epoch: int = 6, first_k_calc = True, k_neighbors: int = 4, init_mode: Init_Mode='diagonal'):
+        """
         Initialize a new Self Organizing Map
         
         Parameters
@@ -80,13 +78,10 @@ def initialize_random(num_neurons, data):
                 If True, calculates nearest neighbors on first call of train (default is True)
             k_neighbors : int
                 How many neighbors can a neuron have (default is 4)
-            randomize_data : boolean
-                Should we shuffle the data points before evaluation? (default is True)
             init_mode : Init_Mode
                 How should the neurons be initialized?
                 Possible values are diagonal, onepoint and random (default ist diagonal)
-        */
-       /* TODO: c has pointers! or smth lmao
+        """
         self.data = np.array(data)
         self.num_neurons = num_neurons
         self.epochs = epochs
@@ -96,23 +91,18 @@ def initialize_random(num_neurons, data):
         self.calculate_k_epoch = calculate_k_epoch
         self.first_k_calc = first_k_calc
         self.k_neighbors = k_neighbors
-        self.randomize_data = randomize_data
         self.init_mode = init_mode
-*/
-        //TODO: WDYMEEEAAAN if declaration error
-        if (init_mode == "diagonal") {
-            self.weights = initializegrid_diagonal(num_neurons, self.data);
-        } else if (init_mode == "onepoint") {
-            self.weights = initializegrid_onepoint(num_neurons, self.data);
-        } else if (init_mode == "random") {
-            self.weights = initialize_random(num_neurons, self.data);
-        }
+
+        if init_mode == 'diagonal':
+            self.weights = initializegrid_diagonal(num_neurons, self.data)
+        elif init_mode == 'onepoint':
+            self.weights = initializegrid_onepoint(num_neurons, self.data)
+        elif init_mode == 'random':
+            self.weights = initialize_random(num_neurons, self.data)
         else:
             raise ValueError("Invalid init_mode. Choose 'diagonal', 'onepoint', or 'random'")
-        
-        // TODO: make array for neighbors = {i: [] for i in range(num_neurons)}
+        self.neighbors = {i: [] for i in range(num_neurons)}
 
-    /*TODO: translate to c
     def calculate_k_closest_neighbors(self):
         distances = np.linalg.norm(self.weights[:, None] - self.weights, axis=2)
         for i in range(self.num_neurons):
@@ -122,14 +112,15 @@ def initialize_random(num_neurons, data):
         neighbor_indices = self.neighbors[neuron_idx]
         self.weights[neighbor_indices] += influence * learning_rate * (current_data_point - self.weights[neighbor_indices])
 
-    def train(self, step_by_step=False):
+    def train(self):
         if self.first_k_calc:
             self.calculate_k_closest_neighbors()
             self.first_k_calc = False
 
         for epoch in range(self.epochs):
-            if self.randomize_data:
-                np.random.shuffle(self.data)
+            # Shuffle data each epoch
+            np.random.shuffle(self.data)
+            
             for x in self.data:
                 closest_neuron_idx = np.argmin(np.linalg.norm(self.weights - x, axis=1))
                 self.weights[closest_neuron_idx] += self.learning_rate * (x - self.weights[closest_neuron_idx])
@@ -147,41 +138,103 @@ def initialize_random(num_neurons, data):
         for x in self.data:
             closest_neuron_idx = np.argmin(np.linalg.norm(self.weights - x, axis=1))
             clusters.append(closest_neuron_idx)
-        cluster_column = np.array(clusters).reshape(-1, 1)
-        return cluster_column
-*/
+        return clusters
 
-/*TODO: do i need this???
-double analyze_array(double arr[], int n) {
-    /*
-    Analyze an array to determine:
-    1. The length of the array (n)
-    2. The number of unique elements in the array
-
-    Parameters:
-    array of shape (n, 1)
-
-    Returns:
-    tuple: (length of the array, number of unique elements)
+# --- Helper: load data from file ---
+def load_data(filename):
+    data = []
+    try:
+        with open(filename, 'r') as file:
+            for line in file:
+                line = line.strip()
+                if line:
+                    row = list(map(float, line.split()))
+                    if row:
+                        data.append(row)
+    except FileNotFoundError:
+        print(f"Error: Could not open file {filename}")
+        sys.exit(1)
     
-    // Ensure the input is an array
-    if (arr != ) {
-        fprintf(stderr, "Input must be a valid array\n");
-        return -1;
-    }
+    if not data:
+        print("Error: No valid data found in file.")
+        sys.exit(1)
+    
+    return np.array(data)
 
-    // Check if the array shape is (n, 1)
-    if (arr.ndim != 2 || arr.shape[1] != 1) {
-        fprintf(stderr, "Array must be of shape (n, 1)\n");
-        return -1;
-    }
+# --- Helper: read input with defaults ---
+def read_int(prompt, default_val):
+    try:
+        user_input = input(f"{prompt} [{default_val}]: ").strip()
+        if user_input == "":
+            return default_val
+        return int(user_input)
+    except ValueError:
+        return default_val
 
-    // Calculate the length of the array
-    length =
+def read_float(prompt, default_val):
+    try:
+        user_input = input(f"{prompt} [{default_val}]: ").strip()
+        if user_input == "":
+            return default_val
+        return float(user_input)
+    except ValueError:
+        return default_val
 
-    // Calculate the number of unique elements
-    unique_elements = np.unique(arr).size
-
-    return length, unique_elements
-}
-*/
+# --- MAIN ---
+if __name__ == "__main__":
+    # Check if data file was provided
+    if len(sys.argv) < 2:
+        print("Error: No data file provided.")
+        print("Usage: python newSOM.py <datafile>")
+        sys.exit(1)
+    
+    filename = sys.argv[1]
+    data = load_data(filename)
+    
+    # Default parameters
+    default_num_neurons = 10
+    default_epochs = 100
+    default_learning_rate = 0.3
+    default_influence = 0.1
+    default_update_neighbors_epoch = 4
+    default_calculate_k_epoch = 6
+    default_k_neighbors = 4
+    default_init_mode = 0
+    
+    # Read parameters from user
+    num_neurons = read_int("Enter number of neurons", default_num_neurons)
+    epochs = read_int("Enter number of epochs", default_epochs)
+    learning_rate = read_float("Enter learning rate", default_learning_rate)
+    influence = read_float("Enter influence", default_influence)
+    update_neighbors_epoch = read_int("Enter update_neighbors_epoch", default_update_neighbors_epoch)
+    calculate_k_epoch = read_int("Enter calculate_k_epoch", default_calculate_k_epoch)
+    k_neighbors = read_int("Enter k_neighbors", default_k_neighbors)
+    init_mode_input = read_int("Init mode (0 = diagonal, 1 = onepoint, 2 = random)", default_init_mode)
+    
+    # Convert init mode
+    init_mode_map = {0: 'diagonal', 1: 'onepoint', 2: 'random'}
+    init_mode = init_mode_map.get(init_mode_input, 'diagonal')
+    
+    # Create and train SOM
+    som = SOM(data,
+              num_neurons,
+              epochs,
+              learning_rate,
+              influence,
+              update_neighbors_epoch,
+              calculate_k_epoch,
+              k_neighbors,
+              init_mode=init_mode)
+    
+    start = time.perf_counter()
+    clusters = som.train()
+    end = time.perf_counter()
+    print(f"\nTraining completed in {end - start} seconds.")
+    # Output results
+    print("\nCluster assignments:")
+    cluster_counts = Counter(clusters)
+    
+    for cluster_id in sorted(cluster_counts.keys()):
+        print(f"{cluster_id}: {cluster_counts[cluster_id]}")
+    
+    

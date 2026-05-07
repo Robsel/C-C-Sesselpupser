@@ -192,7 +192,7 @@ def analyze_array(arr):
     return length, unique_elements
 
 # Example usage
-data, _ = make_blobs(n_samples=2000, centers=15, n_features=2, random_state=42)
+data, _ = make_blobs(n_samples=20000, centers=13, n_features=2, random_state=42)
 num_neurons = int(np.ceil(np.sqrt(data.shape[0])))
 epochs = 100
 learning_rate = 0.3
