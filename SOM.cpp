@@ -14,7 +14,7 @@ using namespace std;
 typedef vector<double> Vec;
 typedef vector<Vec> Matrix;
 
-// Euclidean distance
+// Euclidean distance between two full vectors
 double distance(const Vec &a, const Vec &b)
 {
     double sum = 0.0;
@@ -25,7 +25,32 @@ double distance(const Vec &a, const Vec &b)
     return sqrt(sum);
 }
 
+// Euclidean distance between two neuron columns in a [dim][num_neurons] weight matrix
+double col_distance(const Matrix &weights, int i, int j)
+{
+    double sum = 0.0;
+    for (size_t d = 0; d < weights.size(); d++)
+    {
+        double diff = weights[d][i] - weights[d][j];
+        sum += diff * diff;
+    }
+    return sqrt(sum);
+}
+
+// Distance between a data point x and neuron column i
+double col_distance_vec(const Matrix &weights, int i, const Vec &x)
+{
+    double sum = 0.0;
+    for (size_t d = 0; d < weights.size(); d++)
+    {
+        double diff = weights[d][i] - x[d];
+        sum += diff * diff;
+    }
+    return sqrt(sum);
+}
+
 // --- Initialization methods ---
+// All return weights in [dim][num_neurons] layout
 
 Matrix initialize_diagonal(int num_neurons, const Matrix &data)
 {
@@ -40,14 +65,14 @@ Matrix initialize_diagonal(int num_neurons, const Matrix &data)
         }
     }
 
-    Matrix weights(num_neurons, Vec(dim));
-
-    for (int i = 0; i < num_neurons; i++)
+    // weights[d][n]
+    Matrix weights(dim, Vec(num_neurons));
+    for (int n = 0; n < num_neurons; n++)
     {
         for (int d = 0; d < dim; d++)
         {
-            weights[i][d] = min_vals[d] +
-                            (max_vals[d] - min_vals[d]) * i / (num_neurons - 1);
+            weights[d][n] = min_vals[d] +
+                            (max_vals[d] - min_vals[d]) * n / (num_neurons - 1);
         }
     }
     return weights;
@@ -67,13 +92,14 @@ Matrix initialize_onepoint(int num_neurons, const Matrix &data)
         }
     }
 
-    Vec mid(dim);
-    for (int i = 0; i < dim; i++)
+    // weights[d][n]: every neuron starts at the midpoint along each dimension
+    Matrix weights(dim, Vec(num_neurons));
+    for (int d = 0; d < dim; d++)
     {
-        mid[i] = (min_vals[i] + max_vals[i]) / 2.0;
+        double mid = (min_vals[d] + max_vals[d]) / 2.0;
+        for (int n = 0; n < num_neurons; n++)
+            weights[d][n] = mid;
     }
-
-    Matrix weights(num_neurons, mid); // replicate midpoint
     return weights;
 }
 
@@ -94,15 +120,13 @@ Matrix initialize_random(int num_neurons, const Matrix &data)
     random_device rd;
     mt19937 gen(rd());
 
-    Matrix weights(num_neurons, Vec(dim));
-
-    for (int i = 0; i < num_neurons; i++)
+    // weights[d][n]
+    Matrix weights(dim, Vec(num_neurons));
+    for (int d = 0; d < dim; d++)
     {
-        for (int d = 0; d < dim; d++)
-        {
-            uniform_real_distribution<> dis(min_vals[d], max_vals[d]);
-            weights[i][d] = dis(gen);
-        }
+        uniform_real_distribution<> dis(min_vals[d], max_vals[d]);
+        for (int n = 0; n < num_neurons; n++)
+            weights[d][n] = dis(gen);
     }
     return weights;
 }
@@ -120,6 +144,7 @@ public:
     };
 
     Matrix data;
+    // weights[dim][num_neurons]
     Matrix weights;
     vector<vector<int>> neighbors;
 
@@ -170,7 +195,7 @@ public:
 
             for (int j = 0; j < num_neurons; j++)
             {
-                dist_list.push_back({distance(weights[i], weights[j]), j});
+                dist_list.push_back({col_distance(weights, i, j), j});
             }
 
             sort(dist_list.begin(), dist_list.end());
@@ -185,11 +210,12 @@ public:
 
     void update_neighborhood(int idx, const Vec &x)
     {
+        int dim = weights.size();
         for (int n : neighbors[idx])
         {
-            for (size_t d = 0; d < weights[n].size(); d++)
+            for (int d = 0; d < dim; d++)
             {
-                weights[n][d] += influence * learning_rate * (x[d] - weights[n][d]);
+                weights[d][n] += influence * learning_rate * (x[d] - weights[d][n]);
             }
         }
     }
@@ -201,7 +227,7 @@ public:
 
         for (int i = 0; i < num_neurons; i++)
         {
-            double d = distance(weights[i], x);
+            double d = col_distance_vec(weights, i, x);
             if (d < best_dist)
             {
                 best_dist = d;
@@ -213,6 +239,7 @@ public:
 
     vector<int> train()
     {
+        int dim = weights.size();
         calculate_neighbors();
 
         random_device rd;
@@ -220,17 +247,15 @@ public:
 
         for (int epoch = 0; epoch < epochs; epoch++)
         {
-            double start_time = chrono::high_resolution_clock::now().time_since_epoch().count() / 1e9;
-
             shuffle(data.begin(), data.end(), gen);
 
             for (const auto &x : data)
             {
                 int idx = closest_neuron(x);
 
-                for (size_t d = 0; d < weights[idx].size(); d++)
+                for (int d = 0; d < dim; d++)
                 {
-                    weights[idx][d] += learning_rate * (x[d] - weights[idx][d]);
+                    weights[d][idx] += learning_rate * (x[d] - weights[d][idx]);
                 }
 
                 if (epoch >= update_neighbors_epoch &&
@@ -245,8 +270,6 @@ public:
             {
                 calculate_neighbors();
             }
-            double epoch_time = chrono::high_resolution_clock::now().time_since_epoch().count() / 1e9;
-            cout << "Epoch " << epoch + 1 << "/" << epochs << " completed in " << (epoch_time - start_time) << " seconds." << endl;
         }
 
         vector<int> clusters;
@@ -304,7 +327,6 @@ Matrix load_data(const string &filename)
 // --- MAIN ---
 int main(int argc, char *argv[])
 {
-
     // Check if data file was provided
     if (argc < 2)
     {
@@ -386,8 +408,12 @@ int main(int argc, char *argv[])
             // randomize_data,
             init_mode);
 
+    double start_time = chrono::high_resolution_clock::now().time_since_epoch().count() / 1e9;
+
     // Train
     vector<int> clusters = som.train();
+    double epoch_time = chrono::high_resolution_clock::now().time_since_epoch().count() / 1e9;
+    cout << "done in " << epoch_time - start_time << " seconds." << endl;
 
     // Output results
     std::cout << "\nCluster assignments:\n";
@@ -404,5 +430,6 @@ int main(int argc, char *argv[])
     {
         std::cout << pair.first << ": " << pair.second << std::endl;
     }
+
     return 0;
 }

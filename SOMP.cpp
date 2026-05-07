@@ -14,7 +14,7 @@ using namespace std;
 typedef vector<double> Vec;
 typedef vector<Vec> Matrix;
 
-// Euclidean distance
+// Euclidean distance between two full vectors
 double distance(const Vec &a, const Vec &b)
 {
     double sum = 0.0;
@@ -25,7 +25,32 @@ double distance(const Vec &a, const Vec &b)
     return sqrt(sum);
 }
 
+// Euclidean distance between two neuron columns in a [dim][num_neurons] weight matrix
+double col_distance(const Matrix &weights, int i, int j)
+{
+    double sum = 0.0;
+    for (size_t d = 0; d < weights.size(); d++)
+    {
+        double diff = weights[d][i] - weights[d][j];
+        sum += diff * diff;
+    }
+    return sqrt(sum);
+}
+
+// Distance between a data point x and neuron column i
+double col_distance_vec(const Matrix &weights, int i, const Vec &x)
+{
+    double sum = 0.0;
+    for (size_t d = 0; d < weights.size(); d++)
+    {
+        double diff = weights[d][i] - x[d];
+        sum += diff * diff;
+    }
+    return sqrt(sum);
+}
+
 // --- Initialization methods ---
+// All return weights in [dim][num_neurons] layout
 
 Matrix initialize_diagonal(int num_neurons, const Matrix &data)
 {
@@ -39,14 +64,15 @@ Matrix initialize_diagonal(int num_neurons, const Matrix &data)
             max_vals[i] = max(max_vals[i], row[i]);
         }
     }
-    Matrix weights(num_neurons, Vec(dim));
 
-    for (int i = 0; i < num_neurons; i++)
+    // weights[d][n] = value for dimension d, neuron n
+    Matrix weights(dim, Vec(num_neurons));
+    for (int n = 0; n < num_neurons; n++)
     {
         for (int d = 0; d < dim; d++)
         {
-            weights[i][d] = min_vals[d] +
-                            (max_vals[d] - min_vals[d]) * i / (num_neurons - 1);
+            weights[d][n] = min_vals[d] +
+                            (max_vals[d] - min_vals[d]) * n / (num_neurons - 1);
         }
     }
     return weights;
@@ -56,7 +82,6 @@ Matrix initialize_onepoint(int num_neurons, const Matrix &data)
 {
     int dim = data[0].size();
     Vec min_vals(dim, 1e9), max_vals(dim, -1e9);
-
     for (const auto &row : data)
     {
         for (int i = 0; i < dim; i++)
@@ -66,13 +91,14 @@ Matrix initialize_onepoint(int num_neurons, const Matrix &data)
         }
     }
 
-    Vec mid(dim);
-    for (int i = 0; i < dim; i++)
+    // weights[d][n]: every neuron starts at the midpoint along each dimension
+    Matrix weights(dim, Vec(num_neurons));
+    for (int d = 0; d < dim; d++)
     {
-        mid[i] = (min_vals[i] + max_vals[i]) / 2.0;
+        double mid = (min_vals[d] + max_vals[d]) / 2.0;
+        for (int n = 0; n < num_neurons; n++)
+            weights[d][n] = mid;
     }
-
-    Matrix weights(num_neurons, mid); // replicate midpoint
     return weights;
 }
 
@@ -80,7 +106,6 @@ Matrix initialize_random(int num_neurons, const Matrix &data)
 {
     int dim = data[0].size();
     Vec min_vals(dim, 1e9), max_vals(dim, -1e9);
-
     for (const auto &row : data)
     {
         for (int i = 0; i < dim; i++)
@@ -92,15 +117,14 @@ Matrix initialize_random(int num_neurons, const Matrix &data)
 
     random_device rd;
     mt19937 gen(rd());
-    Matrix weights(num_neurons, Vec(dim));
 
-    for (int i = 0; i < num_neurons; i++)
+    // weights[d][n]
+    Matrix weights(dim, Vec(num_neurons));
+    for (int d = 0; d < dim; d++)
     {
-        for (int d = 0; d < dim; d++)
-        {
-            uniform_real_distribution<> dis(min_vals[d], max_vals[d]);
-            weights[i][d] = dis(gen);
-        }
+        uniform_real_distribution<> dis(min_vals[d], max_vals[d]);
+        for (int n = 0; n < num_neurons; n++)
+            weights[d][n] = dis(gen);
     }
     return weights;
 }
@@ -118,6 +142,7 @@ public:
     };
 
     Matrix data;
+    // weights[dim][num_neurons]
     Matrix weights;
     vector<vector<int>> neighbors;
 
@@ -159,22 +184,20 @@ public:
 
     void calculate_neighbors()
     {
-
         for (int i = 0; i < num_neurons; i++)
         {
             vector<pair<double, int>> dist_list;
-
             for (int j = 0; j < num_neurons; j++)
             {
                 if (i == j)
                     continue;
-                dist_list.push_back({distance(weights[i], weights[j]), j});
+                dist_list.push_back({col_distance(weights, i, j), j});
             }
 
             sort(dist_list.begin(), dist_list.end());
 
             neighbors[i].clear();
-            for (int k = 0; k < k_neighbors && k < dist_list.size(); k++)
+            for (int k = 0; k < k_neighbors && k < (int)dist_list.size(); k++)
             {
                 neighbors[i].push_back(dist_list[k].second);
             }
@@ -183,12 +206,12 @@ public:
 
     void update_neighborhood(int idx, const Vec &x)
     {
-
+        int dim = weights.size();
         for (int n : neighbors[idx])
         {
-            for (size_t d = 0; d < weights[n].size(); d++)
+            for (int d = 0; d < dim; d++)
             {
-                weights[n][d] += influence * learning_rate * (x[d] - weights[n][d]);
+                weights[d][n] += influence * learning_rate * (x[d] - weights[d][n]);
             }
         }
     }
@@ -200,7 +223,7 @@ public:
 
         for (int i = 0; i < num_neurons; i++)
         {
-            double d = distance(weights[i], x);
+            double d = col_distance_vec(weights, i, x);
             if (d < best_dist)
             {
                 best_dist = d;
@@ -212,6 +235,7 @@ public:
 
     vector<int> train()
     {
+        int dim = weights.size();
         calculate_neighbors();
 
         random_device rd;
@@ -224,10 +248,10 @@ public:
             for (const auto &x : data)
             {
                 int idx = closest_neuron(x);
-#pragma omp parallel for
-                for (size_t d = 0; d < weights[idx].size(); d++)
+
+                for (int d = 0; d < dim; d++)
                 {
-                    weights[idx][d] += learning_rate * (x[d] - weights[idx][d]);
+                    weights[d][idx] += learning_rate * (x[d] - weights[d][idx]);
                 }
 
                 if (epoch >= update_neighbors_epoch &&
@@ -245,8 +269,7 @@ public:
         }
 
         vector<int> clusters(data.size());
-
-        for (int idx = 0; idx < data.size(); idx++)
+        for (int idx = 0; idx < (int)data.size(); idx++)
         {
             clusters[idx] = closest_neuron(data[idx]);
         }
@@ -257,7 +280,6 @@ public:
 
 //------------Main function and helper to load data from file--------------
 
-// --- Helper: load data from file ---
 Matrix load_data(const string &filename)
 {
     ifstream file(filename);
@@ -300,8 +322,6 @@ Matrix load_data(const string &filename)
 // --- MAIN ---
 int main(int argc, char *argv[])
 {
-
-    // Check if data file was provided
     if (argc < 2)
     {
         std::cerr << "Error: No data file provided.\n";
@@ -312,7 +332,6 @@ int main(int argc, char *argv[])
     string filename = argv[1];
     Matrix data = load_data(filename);
 
-    // Parameters and defaults
     int num_neurons, epochs, update_neighbors_epoch, calculate_k_epoch, k_neighbors;
     double learning_rate, influence;
     int init_mode_input;
@@ -370,7 +389,6 @@ int main(int argc, char *argv[])
     else
         init_mode = SOM::RANDOM;
 
-    // Create SOM
     SOM som(data,
             num_neurons,
             epochs,
@@ -382,25 +400,16 @@ int main(int argc, char *argv[])
             init_mode);
 
     double start_time = omp_get_wtime();
-    // Train
     vector<int> clusters = som.train();
-
     double end_time = omp_get_wtime();
     cout << "Training completed in " << (end_time - start_time) << " seconds." << endl;
 
     std::map<int, int> count;
-
-    // Count occurrences
     for (int num : clusters)
-    {
         count[num]++;
-    }
 
-    // Print results (automatically sorted)
     for (const auto &pair : count)
-    {
         std::cout << pair.first << ": " << pair.second << std::endl;
-    }
 
     return 0;
 }
