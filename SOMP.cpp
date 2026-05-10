@@ -41,7 +41,6 @@ double col_distance(const Matrix &weights, int i, int j)
 double col_distance_vec(const Matrix &weights, int i, const Vec &x)
 {
     double sum = 0.0;
-#pragma omp parallel for reduction(+ : sum)
     for (size_t d = 0; d < weights.size(); d++)
     {
         double diff = weights[d][i] - x[d];
@@ -216,21 +215,30 @@ public:
         }
     }
 
-    int closest_neuron(const Vec &x) const
+    struct BestMatch
     {
-        double best_dist = 1e18;
-        int best_idx = 0;
+        double dist;
+        int idx;
+    };
 
+#pragma omp declare reduction(                                                            \
+        best_match:BestMatch : omp_out = (omp_in.dist < omp_out.dist ? omp_in : omp_out)) \
+    initializer(omp_priv = {1e30, -1})
+
+    int closest_neuron(const Vec &x, const Matrix &weights) const
+    {
+        BestMatch best = {1e30, -1};
+
+#pragma omp parallel for reduction(best_match : best)
         for (int i = 0; i < num_neurons; i++)
         {
             double d = col_distance_vec(weights, i, x);
-            if (d < best_dist)
-            {
-                best_dist = d;
-                best_idx = i;
-            }
+            BestMatch candidate = {d, i};
+
+            best = candidate; // reduction decides which one survives
         }
-        return best_idx;
+
+        return best.idx;
     }
 
     vector<int> train()
@@ -247,7 +255,7 @@ public:
 
             for (const auto &x : data)
             {
-                int idx = closest_neuron(x);
+                int idx = closest_neuron(x, weights);
 
                 for (int d = 0; d < dim; d++)
                 {
@@ -271,7 +279,7 @@ public:
         vector<int> clusters(data.size());
         for (int idx = 0; idx < (int)data.size(); idx++)
         {
-            clusters[idx] = closest_neuron(data[idx]);
+            clusters[idx] = closest_neuron(data[idx], weights);
         }
 
         return clusters;
