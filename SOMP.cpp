@@ -235,7 +235,7 @@ public:
             double d = col_distance_vec(weights, i, x);
             BestMatch candidate = {d, i};
 
-            best = candidate; // reduction decides which one survives
+            best = candidate;
         }
 
         return best.idx;

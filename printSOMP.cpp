@@ -194,9 +194,7 @@ public:
                     continue;
                 dist_list.push_back({col_distance(weights, i, j), j});
             }
-
             sort(dist_list.begin(), dist_list.end());
-
             neighbors[i].clear();
             for (int k = 0; k < k_neighbors && k < (int)dist_list.size(); k++)
             {
@@ -224,24 +222,21 @@ public:
         int idx;
     };
 
-#pragma omp declare reduction(                                                            \
-        best_match:BestMatch : omp_out = (omp_in.dist < omp_out.dist ? omp_in : omp_out)) \
-    initializer(omp_priv = {1e30, -1})
-
     int closest_neuron(const Vec &x, const Matrix &weights) const
     {
-        BestMatch best = {1e30, -1};
+        double best_dist = 1e18;
+        int best_idx = 0;
 
-#pragma omp parallel for reduction(best_match : best)
         for (int i = 0; i < num_neurons; i++)
         {
             double d = col_distance_vec(weights, i, x);
-            BestMatch candidate = {d, i};
-
-            best = candidate; // reduction decides which one survives
+            if (d < best_dist)
+            {
+                best_dist = d;
+                best_idx = i;
+            }
         }
-
-        return best.idx;
+        return best_idx;
     }
 
     vector<int> train()
@@ -292,6 +287,7 @@ public:
 
                 // --- weight update ---
                 lt0 = omp_get_wtime();
+#pragma omp parallel for
                 for (int d = 0; d < dim; d++)
                     weights[d][idx] += learning_rate * (x[d] - weights[d][idx]);
                 lt1 = omp_get_wtime();
