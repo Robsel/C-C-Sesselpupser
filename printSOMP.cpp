@@ -216,26 +216,34 @@ public:
         }
     }
 
-    struct BestMatch
-    {
-        double dist;
-        int idx;
-    };
-
-    int closest_neuron(const Vec &x, const Matrix &weights) const
+    int closest_neuron(const Vec &x)
     {
         double best_dist = 1e18;
         int best_idx = 0;
 
+        double t_dist_local = 0, t_cmp_local = 0;
+        double t0, t1;
+
         for (int i = 0; i < num_neurons; i++)
         {
+            t0 = omp_get_wtime();
             double d = col_distance_vec(weights, i, x);
+            t1 = omp_get_wtime();
+            t_dist_local += t1 - t0;
+
+            t0 = omp_get_wtime();
             if (d < best_dist)
             {
                 best_dist = d;
                 best_idx = i;
             }
+            t1 = omp_get_wtime();
+            t_cmp_local += t1 - t0;
         }
+
+        t_cn_dist += t_dist_local;
+        t_cn_compare += t_cmp_local;
+
         return best_idx;
     }
 
@@ -278,7 +286,7 @@ public:
             {
                 // --- closest_neuron ---
                 double lt0 = omp_get_wtime();
-                int idx = closest_neuron(x, weights);
+                int idx = closest_neuron(x);
                 double lt1 = omp_get_wtime();
 
                 ep_closest += lt1 - lt0;
@@ -287,7 +295,6 @@ public:
 
                 // --- weight update ---
                 lt0 = omp_get_wtime();
-#pragma omp parallel for
                 for (int d = 0; d < dim; d++)
                     weights[d][idx] += learning_rate * (x[d] - weights[d][idx]);
                 lt1 = omp_get_wtime();
@@ -372,7 +379,7 @@ public:
         t0 = omp_get_wtime();
         vector<int> clusters(data.size());
         for (int idx = 0; idx < (int)data.size(); idx++)
-            clusters[idx] = closest_neuron(data[idx], weights);
+            clusters[idx] = closest_neuron(data[idx]);
         t1 = omp_get_wtime();
         cout << "[post] final cluster assignment: " << (t1 - t0) * 1000.0 << " ms\n";
 

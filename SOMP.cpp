@@ -215,30 +215,21 @@ public:
         }
     }
 
-    struct BestMatch
-    {
-        double dist;
-        int idx;
-    };
-
-#pragma omp declare reduction(                                                            \
-        best_match:BestMatch : omp_out = (omp_in.dist < omp_out.dist ? omp_in : omp_out)) \
-    initializer(omp_priv = {1e30, -1})
-
     int closest_neuron(const Vec &x, const Matrix &weights) const
     {
-        BestMatch best = {1e30, -1};
+        double best_dist = 1e18;
+        int best_idx = 0;
 
-#pragma omp parallel for reduction(best_match : best)
         for (int i = 0; i < num_neurons; i++)
         {
             double d = col_distance_vec(weights, i, x);
-            BestMatch candidate = {d, i};
-
-            best = candidate;
+            if (d < best_dist)
+            {
+                best_dist = d;
+                best_idx = i;
+            }
         }
-
-        return best.idx;
+        return best_idx;
     }
 
     vector<int> train()
