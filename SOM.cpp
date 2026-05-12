@@ -14,12 +14,6 @@ using namespace std;
 typedef vector<double> Vec;
 typedef vector<Vec> Matrix;
 
-// Helper for high-resolution timing
-static double now_sec()
-{
-    return chrono::high_resolution_clock::now().time_since_epoch().count() / 1e9;
-}
-
 double distance(const Vec &a, const Vec &b)
 {
     double sum = 0.0;
@@ -126,12 +120,6 @@ public:
     int num_neurons, epochs, update_neighbors_epoch, calculate_k_epoch, k_neighbors;
     double learning_rate, influence;
 
-    // Accumulated timing buckets (seconds)
-    double t_shuffle = 0, t_closest = 0, t_weight_update = 0,
-           t_neighborhood_update = 0, t_calc_neighbors = 0;
-    // Call counts
-    long long calls_closest = 0, calls_neighborhood = 0, calls_calc_neighbors = 0;
-
     SOM(const Matrix &data, int num_neurons, int epochs = 100,
         double learning_rate = 0.3, double influence = 0.1,
         int update_neighbors_epoch = 4, int calculate_k_epoch = 6,
@@ -172,10 +160,7 @@ public:
                 weights[d][n] += influence * learning_rate * (x[d] - weights[d][n]);
     }
 
-    // Add these to the SOM class member variables:
-    double t_cn_loop = 0, t_cn_dist = 0, t_cn_compare = 0;
-
-    int closest_neuron(const Vec &x) // remove const to allow timing member updates
+    int closest_neuron(const Vec &x)
     {
         double best_dist = 1e18;
         int best_idx = 0;
@@ -185,23 +170,14 @@ public:
 
         for (int i = 0; i < num_neurons; i++)
         {
-            t0 = now_sec();
             double d = col_distance_vec(weights, i, x);
-            t1 = now_sec();
-            t_dist_local += t1 - t0;
-
-            t0 = now_sec();
             if (d < best_dist)
             {
                 best_dist = d;
                 best_idx = i;
             }
-            t1 = now_sec();
             t_cmp_local += t1 - t0;
         }
-
-        t_cn_dist += t_dist_local;
-        t_cn_compare += t_cmp_local;
 
         return best_idx;
     }
@@ -209,138 +185,37 @@ public:
     vector<int> train()
     {
         int dim = weights.size();
-        double t0, t1;
 
-        // --- Initial neighbor calculation ---
-        t0 = now_sec();
         calculate_neighbors();
-        t1 = now_sec();
-        t_calc_neighbors += t1 - t0;
-        calls_calc_neighbors++;
-        cout << "[init] calculate_neighbors: " << (t1 - t0) << " s\n";
-
         random_device rd;
         mt19937 gen(rd());
 
-        double epoch_start = now_sec();
-
         for (int epoch = 0; epoch < epochs; epoch++)
         {
-            double ep0 = now_sec();
-
-            // --- Shuffle ---
-            t0 = now_sec();
             shuffle(data.begin(), data.end(), gen);
-            t1 = now_sec();
-            t_shuffle += t1 - t0;
-
             bool do_neighbor_update = (epoch >= update_neighbors_epoch &&
                                        epoch % update_neighbors_epoch == 0);
             bool do_calc_neighbors = (epoch >= calculate_k_epoch &&
                                       epoch % calculate_k_epoch == 0);
 
-            double ep_closest = 0, ep_weight = 0, ep_neighborhood = 0;
-
             for (const auto &x : data)
             {
-                // --- closest_neuron ---
-                t0 = now_sec();
                 int idx = closest_neuron(x);
-                t1 = now_sec();
-                ep_closest += t1 - t0;
-                calls_closest++;
-
-                // --- weight update ---
-                t0 = now_sec();
                 for (int d = 0; d < dim; d++)
                     weights[d][idx] += learning_rate * (x[d] - weights[d][idx]);
-                t1 = now_sec();
-                ep_weight += t1 - t0;
-
-                // --- neighborhood update ---
                 if (do_neighbor_update)
                 {
-                    t0 = now_sec();
                     update_neighborhood(idx, x);
-                    t1 = now_sec();
-                    ep_neighborhood += t1 - t0;
-                    calls_neighborhood++;
                 }
             }
-
-            t_closest += ep_closest;
-            t_weight_update += ep_weight;
-            t_neighborhood_update += ep_neighborhood;
-
-            // --- recalculate neighbors ---
-            double ep_calc_nb = 0;
             if (do_calc_neighbors)
             {
-                t0 = now_sec();
                 calculate_neighbors();
-                t1 = now_sec();
-                ep_calc_nb = t1 - t0;
-                t_calc_neighbors += ep_calc_nb;
-                calls_calc_neighbors++;
-            }
-
-            double ep1 = now_sec();
-            double ep_total = ep1 - ep0;
-
-            // Print a summary every epoch (condense to every 10 if noisy)
-            if (epoch % 10 == 0 || epoch == epochs - 1)
-            {
-                cout << "[epoch " << epoch << "] "
-                     << "total=" << ep_total << " s | "
-                     << "shuffle=" << t_shuffle / (epoch + 1) << " s avg | " // running avg
-                     << "closest=" << ep_closest << " s | "
-                     << "weight_upd=" << ep_weight << " s | "
-                     << "nb_upd=" << ep_neighborhood << " s | "
-                     << "calc_nb=" << ep_calc_nb << " s\n";
             }
         }
-
-        double total_train = now_sec() - epoch_start;
-
-        // --- Final summary ---
-        cout << "\n========= TIMING SUMMARY =========\n";
-        cout << "Total training time:      " << total_train << " s\n\n";
-        cout << "  shuffle:                " << t_shuffle
-             << " s  (" << 100.0 * t_shuffle / total_train << "%)\n";
-        cout << "  closest_neuron:         " << t_closest
-             << " s  (" << 100.0 * t_closest / total_train << "%)  "
-             << calls_closest << " calls\n";
-        cout << "    └─ col_distance_vec:  " << t_cn_dist
-             << " s  (" << 100.0 * t_cn_dist / t_closest << "% of closest)\n";
-        cout << "    └─ compare/update:    " << t_cn_compare
-             << " s  (" << 100.0 * t_cn_compare / t_closest << "% of closest)\n";
-        cout << "    └─ overhead/other:    "
-             << (t_closest - t_cn_dist - t_cn_compare)
-             << " s  (" << 100.0 * (t_closest - t_cn_dist - t_cn_compare) / t_closest << "% of closest)\n";
-        cout << "    └─ avg per call:      "
-             << t_closest * 1e3 / calls_closest << " us\n";
-        cout << "    └─ avg dist per call: "
-             << t_cn_dist * 1e6 / (calls_closest * num_neurons) << " ms/neuron\n";
-        cout << "  weight update:          " << t_weight_update
-             << " s  (" << 100.0 * t_weight_update / total_train << "%)\n";
-        cout << "  neighborhood update:    " << t_neighborhood_update
-             << " s  (" << 100.0 * t_neighborhood_update / total_train << "%)  "
-             << calls_neighborhood << " calls\n";
-        cout << "  calculate_neighbors:    " << t_calc_neighbors
-             << " s  (" << 100.0 * t_calc_neighbors / total_train << "%)  "
-             << calls_calc_neighbors << " calls\n";
-        cout << "  unaccounted:            "
-             << (total_train - t_shuffle - t_closest - t_weight_update - t_neighborhood_update - t_calc_neighbors) << " s\n";
-        cout << "===================================\n\n";
-
-        // --- Cluster assignment ---
-        t0 = now_sec();
         vector<int> clusters;
         for (const auto &x : data)
             clusters.push_back(closest_neuron(x));
-        t1 = now_sec();
-        cout << "[post] final cluster assignment: " << (t1 - t0) << " s\n";
-
         return clusters;
     }
 };
@@ -376,27 +251,23 @@ Matrix load_data(const string &filename)
     return data;
 }
 
+// --- MAIN ---
 int main(int argc, char *argv[])
 {
     if (argc < 2)
     {
-        cerr << "Usage: ./a.out <datafile>\n";
-        return 1;
+        cerr << "Error: No data file provided.\n";
+        cerr << "Usage: ./a.out <datafile1> [datafile2 ...]\n";
+        return 404;
     }
 
-    double t0, t1;
+    int num_files = argc - 1;
+    vector<string> filenames(num_files);
+    for (int i = 0; i < num_files; i++)
+        filenames[i] = argv[i + 1];
 
-    t0 = now_sec();
-    Matrix data = load_data(argv[1]);
-    t1 = now_sec();
-    cout << "[load] " << data.size() << " rows x " << data[0].size()
-         << " cols in " << (t1 - t0) * 1000.0 << " ms\n\n";
-
-    int num_neurons, epochs, update_neighbors_epoch, calculate_k_epoch, k_neighbors;
-    double learning_rate, influence;
-    int init_mode_input;
-
-    auto read_int = [&](const string &prompt, int dv)
+    // --- Helper lambdas ---
+    auto read_int = [&](const string &prompt, int dv) -> int
     {
         cout << prompt << " [" << dv << "]: ";
         string line;
@@ -407,7 +278,7 @@ int main(int argc, char *argv[])
         int v;
         return (ss >> v) ? v : dv;
     };
-    auto read_double = [&](const string &prompt, double dv)
+    auto read_double = [&](const string &prompt, double dv) -> double
     {
         cout << prompt << " [" << dv << "]: ";
         string line;
@@ -419,33 +290,96 @@ int main(int argc, char *argv[])
         return (ss >> v) ? v : dv;
     };
 
-    num_neurons = read_int("Enter number of neurons", 10);
-    epochs = read_int("Enter number of epochs", 100);
-    learning_rate = read_double("Enter learning rate", 0.3);
-    influence = read_double("Enter influence", 0.1);
-    update_neighbors_epoch = read_int("Enter update_neighbors_epoch", 4);
-    calculate_k_epoch = read_int("Enter calculate_k_epoch", 6);
-    k_neighbors = read_int("Enter k_neighbors", 4);
-    init_mode_input = read_int("Init mode (0=diagonal, 1=onepoint, 2=random)", 0);
+    // --- Per-SOM parameter struct ---
+    struct SOMParams
+    {
+        int num_neurons;
+        int epochs;
+        double learning_rate;
+        double influence;
+        int update_neighbors_epoch;
+        int calculate_k_epoch;
+        int k_neighbors;
+        SOM::InitMode init_mode;
+    };
 
-    SOM::InitMode init_mode = (init_mode_input == 0)   ? SOM::DIAGONAL
-                              : (init_mode_input == 1) ? SOM::ONEPOINT
-                                                       : SOM::RANDOM;
+    // --- Pre-load all datasets ---
+    vector<Matrix> datasets(num_files);
+    for (int i = 0; i < num_files; i++)
+    {
+        datasets[i] = load_data(filenames[i]);
+    }
 
-    t0 = now_sec();
-    SOM som(data, num_neurons, epochs, learning_rate, influence,
-            update_neighbors_epoch, calculate_k_epoch, k_neighbors, init_mode);
-    t1 = now_sec();
-    cout << "\n[init] SOM construction (weights init): " << (t1 - t0) * 1000.0 << " ms\n\n";
+    // --- Ask parameters for each SOM in sequence ---
+    vector<SOMParams> all_params(num_files);
 
-    vector<int> clusters = som.train();
+    int def_neurons = 10;
+    int def_epochs = 100;
+    double def_lr = 0.3;
+    double def_influence = 0.1;
+    int def_upd_nb = 4;
+    int def_calc_k = 6;
+    int def_k_nb = 4;
+    int def_init = 0;
 
-    cout << "\nCluster assignments:\n";
-    map<int, int> count;
-    for (int n : clusters)
-        count[n]++;
-    for (const auto &p : count)
-        cout << p.first << ": " << p.second << "\n";
+    for (int i = 0; i < num_files; i++)
+    {
+        cout << "\n--- Parameters for Som n°" << (i + 1)
+             << " [" << filenames[i] << "] ---\n";
 
+        all_params[i].num_neurons = read_int("  Number of neurons", def_neurons);
+        all_params[i].epochs = read_int("  Number of epochs", def_epochs);
+        all_params[i].learning_rate = read_double("  Learning rate", def_lr);
+        all_params[i].influence = read_double("  Influence", def_influence);
+        all_params[i].update_neighbors_epoch = read_int("  update_neighbors_epoch", def_upd_nb);
+        all_params[i].calculate_k_epoch = read_int("  calculate_k_epoch", def_calc_k);
+        all_params[i].k_neighbors = read_int("  k_neighbors", def_k_nb);
+
+        int init_in = read_int("  Init mode (0=diagonal, 1=onepoint, 2=random)", def_init);
+        if (init_in == 1)
+            all_params[i].init_mode = SOM::ONEPOINT;
+        else if (init_in == 2)
+            all_params[i].init_mode = SOM::RANDOM;
+        else
+            all_params[i].init_mode = SOM::DIAGONAL;
+
+        // carry forward as defaults for the next SOM
+        def_neurons = all_params[i].num_neurons;
+        def_epochs = all_params[i].epochs;
+        def_lr = all_params[i].learning_rate;
+        def_influence = all_params[i].influence;
+        def_upd_nb = all_params[i].update_neighbors_epoch;
+        def_calc_k = all_params[i].calculate_k_epoch;
+        def_k_nb = all_params[i].k_neighbors;
+        def_init = init_in;
+    }
+
+    // --- Train each SOM sequentially ---
+    vector<vector<int>> all_clusters(num_files);
+    double start_time = chrono::duration<double>(chrono::high_resolution_clock::now().time_since_epoch()).count();
+    for (int i = 0; i < num_files; i++)
+    {
+        const SOMParams &p = all_params[i];
+        SOM som(datasets[i],
+                p.num_neurons, p.epochs, p.learning_rate, p.influence,
+                p.update_neighbors_epoch, p.calculate_k_epoch,
+                p.k_neighbors, p.init_mode);
+
+        all_clusters[i] = som.train();
+    }
+    double elapsed = chrono::duration<double>(chrono::high_resolution_clock::now().time_since_epoch()).count() - start_time;
+
+    // --- Cluster counts ---
+    for (int i = 0; i < num_files; i++)
+    {
+        cout << "\nSom n°" << (i + 1) << " Clusters:\n";
+        map<int, int> count;
+        for (int c : all_clusters[i])
+            count[c]++;
+        for (const auto &kv : count)
+            cout << "  Neuron " << kv.first << ": " << kv.second << " point(s)\n";
+    }
+
+    cout << "Total training time for all SOMs: " << elapsed << " seconds\n";
     return 0;
 }
