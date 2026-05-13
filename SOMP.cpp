@@ -48,38 +48,20 @@ double col_distance_vec(const Matrix &weights, int i, const Vec &x)
     }
     return sum;
 }
-
-// --- Initialization methods ---
-
 Matrix initialize_diagonal(int num_neurons, const Matrix &data)
 {
     int dim = data[0].size();
     Vec min_vals(dim, 1e9), max_vals(dim, -1e9);
-#pragma omp declare reduction(vec_min:Vec : transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), \
-                                                          [](float a, float b){return min(a, b);}))                    \
-    initializer(omp_priv = Vec(omp_orig.size(), 1e9))
-
-#pragma omp declare reduction(vec_max:Vec : transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), \
-                                                          [](float a, float b){return max(a, b);}))                    \
-    initializer(omp_priv = Vec(omp_orig.size(), -1e9))
-
-#pragma omp parallel for reduction(vec_min : min_vals) reduction(vec_max : max_vals)
     for (const auto &row : data)
         for (int i = 0; i < dim; i++)
         {
             min_vals[i] = min(min_vals[i], row[i]);
             max_vals[i] = max(max_vals[i], row[i]);
         }
-
     Matrix weights(dim, Vec(num_neurons));
     for (int n = 0; n < num_neurons; n++)
-    {
         for (int d = 0; d < dim; d++)
-        {
-            weights[d][n] = min_vals[d] +
-                            (max_vals[d] - min_vals[d]) * n / (num_neurons - 1);
-        }
-    }
+            weights[d][n] = min_vals[d] + (max_vals[d] - min_vals[d]) * n / (num_neurons - 1);
     return weights;
 }
 
@@ -87,15 +69,6 @@ Matrix initialize_onepoint(int num_neurons, const Matrix &data)
 {
     int dim = data[0].size();
     Vec min_vals(dim, 1e9), max_vals(dim, -1e9);
-#pragma omp declare reduction(vec_min:Vec : transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), \
-                                                          [](float a, float b){return min(a, b);}))                    \
-    initializer(omp_priv = Vec(omp_orig.size(), 1e9))
-
-#pragma omp declare reduction(vec_max:Vec : transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), \
-                                                          [](float a, float b){return max(a, b);}))                    \
-    initializer(omp_priv = Vec(omp_orig.size(), -1e9))
-
-#pragma omp parallel for reduction(vec_min : min_vals) reduction(vec_max : max_vals)
     for (const auto &row : data)
         for (int i = 0; i < dim; i++)
         {
@@ -116,25 +89,14 @@ Matrix initialize_random(int num_neurons, const Matrix &data)
 {
     int dim = data[0].size();
     Vec min_vals(dim, 1e9), max_vals(dim, -1e9);
-#pragma omp declare reduction(vec_min:Vec : transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), \
-                                                          [](float a, float b){return min(a, b);}))                    \
-    initializer(omp_priv = Vec(omp_orig.size(), 1e9))
-
-#pragma omp declare reduction(vec_max:Vec : transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), \
-                                                          [](float a, float b){return max(a, b);}))                    \
-    initializer(omp_priv = Vec(omp_orig.size(), -1e9))
-
-#pragma omp parallel for reduction(vec_min : min_vals) reduction(vec_max : max_vals)
     for (const auto &row : data)
         for (int i = 0; i < dim; i++)
         {
             min_vals[i] = min(min_vals[i], row[i]);
             max_vals[i] = max(max_vals[i], row[i]);
         }
-
     random_device rd;
     mt19937 gen(rd());
-
     Matrix weights(dim, Vec(num_neurons));
     for (int d = 0; d < dim; d++)
     {
